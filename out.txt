@@ -1,0 +1,11 @@
+Error: TypeError: Cannot read properties of undefined (reading 'map')
+    at convertToModelMessages (C:\Users\mymsi\my-personal-ai\node_modules\ai\dist\index.js:8416:34)
+    at C:\Users\mymsi\my-personal-ai\test-ai.js:6:11
+    at Object.<anonymous> (C:\Users\mymsi\my-personal-ai\test-ai.js:11:3)
+    at Module._compile (node:internal/modules/cjs/loader:1562:14)
+    at Object..js (node:internal/modules/cjs/loader:1699:10)
+    at Module.load (node:internal/modules/cjs/loader:1313:32)
+    at Function._load (node:internal/modules/cjs/loader:1123:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:322:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:217:24)
+    at Function.executeUserEntryPoint [as runMain] (node:internal/modules/run_main:170:5)
