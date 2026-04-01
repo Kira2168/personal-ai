@@ -36,11 +36,15 @@ Projects:
 - Dormitory Management: Java/MySQL housing system.
 
 Contact and links:
+- Phone: +251991899436
+- Phone: +251978625330
 - Email: akirubel339@gmail.com
 - LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339
 - Telegram: https://t.me/officialkira
 - Instagram: https://instagram.com/kiras857
 - Portfolio: https://kira-portfolio-bice.vercel.app/`;
+const DEFAULT_ABOUT_SUMMARY =
+  'Kirubel Adisu Firew is a 4th year Software Engineering student at Arba Minch University (AMU), focused on resilient systems built with clean code and empathy.';
 const PERSONAL_CONTEXT_FILES = new Set([
   'me-profile.txt',
   'me.txt',
@@ -51,6 +55,119 @@ const PERSONAL_CONTEXT_FILES = new Set([
   'me-picture.txt',
 ]);
 const IMAGE_URL_REGEX = /(?:https?:\/\/[^\s]+|\/uploads\/[^\s]+)\.(?:png|jpe?g|webp|gif)/gi;
+
+function getEffectiveProfileContext(personalContext: string) {
+  const trimmed = personalContext.trim();
+  return trimmed.length > 0 ? trimmed : DEFAULT_PROFILE_CONTEXT;
+}
+
+function sanitizePersonalContext(text: string) {
+  return text
+    .split(/\r?\n/)
+    .map(line => line.trim())
+    .filter(Boolean)
+    .filter(
+      line =>
+        !/when asked about me/i.test(line) &&
+        !/answer in first person/i.test(line) &&
+        !/keep it short/i.test(line),
+    )
+    .join('\n');
+}
+
+function normalizeAssistantVoice(text: string) {
+  return text
+    .replace(/^am\s+kirubel\.?/gim, 'Kirubel is')
+    .replace(/\bI am\b/gi, 'Kirubel is')
+    .replace(/\bI\'m\b/gi, 'Kirubel is')
+    .replace(/\bmy\b/gi, 'his')
+    .replace(/\bme\b/gi, 'him')
+    .replace(/\bI\b/g, 'he');
+}
+
+function buildAboutSummary(profileContext: string) {
+  const cleaned = normalizeAssistantVoice(sanitizePersonalContext(profileContext)).trim();
+  const firstUsefulLine = cleaned
+    .split(/\r?\n/)
+    .find(line => line.length > 12 && !/^contact/i.test(line));
+
+  if (!firstUsefulLine) {
+    return DEFAULT_ABOUT_SUMMARY;
+  }
+
+  const normalized = firstUsefulLine
+    .replace(/^am\s+kirubel\.?\s*/i, 'Kirubel is ')
+    .replace(/\bI am\b/gi, 'Kirubel is')
+    .replace(/\bmy\b/gi, 'his')
+    .replace(/\bi\b/gi, 'he')
+    .replace(/^Kirubel is\s+Kirubel is\s+/i, 'Kirubel is ')
+    .trim();
+
+  return normalized.length > 8 ? normalized : DEFAULT_ABOUT_SUMMARY;
+}
+
+function isSkillsQuestion(text: string) {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('skill') ||
+    normalized.includes('tech stack') ||
+    normalized.includes('technologies') ||
+    normalized.includes('what can he do') ||
+    normalized.includes('what does he know')
+  );
+}
+
+function buildSkillsSummary(profileContext: string) {
+  const stack = extractFieldValue(profileContext, 'Tech stack') || extractFieldValue(profileContext, 'Tech Stack');
+
+  if (stack && !stack.includes('...')) {
+    return `Kirubel's core skills focus on ${stack}.`;
+  }
+
+  return "Kirubel's core skills include Next.js, React, Java, Python (AI), PHP, and Unity/C#.";
+}
+
+function extractFieldValue(source: string, field: string) {
+  const regex = new RegExp(`${field}\\s*:\\s*(.+)`, 'i');
+  const match = source.match(regex);
+  return match?.[1]?.trim() ?? '';
+}
+
+function extractContactData(profileContext: string) {
+  const phoneMatches = Array.from(
+    new Set(profileContext.match(/\+251\d{9}/g) ?? []),
+  );
+
+  const phones =
+    phoneMatches.length > 0 ? phoneMatches : ['+251991899436', '+251978625330'];
+
+  const email =
+    extractFieldValue(profileContext, 'Email') ||
+    profileContext.match(/[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/gi)?.[0] ||
+    'akirubel339@gmail.com';
+
+  const linkedIn =
+    extractFieldValue(profileContext, 'LinkedIn') ||
+    profileContext.match(/https?:\/\/[^\s]*linkedin\.com\/[^\s)]+/i)?.[0] ||
+    'https://www.linkedin.com/in/kirubel-adisu-ns339';
+
+  const telegram =
+    extractFieldValue(profileContext, 'Telegram') ||
+    profileContext.match(/https?:\/\/t\.me\/[^\s)]+/i)?.[0] ||
+    'https://t.me/officialkira';
+
+  const instagram =
+    extractFieldValue(profileContext, 'Instagram') ||
+    profileContext.match(/https?:\/\/([^\s]*\.)?instagram\.com\/[^\s)]+/i)?.[0] ||
+    'https://instagram.com/kiras857';
+
+  const portfolio =
+    extractFieldValue(profileContext, 'Portfolio') ||
+    profileContext.match(/https?:\/\/[^\s]*portfolio[^\s)]+/i)?.[0] ||
+    'https://kira-portfolio-bice.vercel.app/';
+
+  return { phones, email, linkedIn, telegram, instagram, portfolio };
+}
 
 function isPictureQuestion(text: string) {
   const normalized = text.toLowerCase();
@@ -327,10 +444,16 @@ export async function POST(req: Request) {
 
     const specificContext = await findRelevantContent(lastMessage, rawContent);
     const contextForPrompt = specificContext.slice(0, 8000);
+    const effectiveProfileContext = getEffectiveProfileContext(personalContext);
+    const cleanedProfileContext = normalizeAssistantVoice(sanitizePersonalContext(effectiveProfileContext));
+    const aboutSummary = buildAboutSummary(effectiveProfileContext);
+    const skillsSummary = buildSkillsSummary(effectiveProfileContext);
+    const contactData = extractContactData(effectiveProfileContext);
     const shouldUsePersonalContext = isPictureQuestion(lastMessage);
     const shouldUseContactMode = isContactQuestion(lastMessage);
     const shouldUseCvMode = isCvQuestion(lastMessage);
     const shouldUseAboutMode = isAboutKirubelQuestion(lastMessage);
+    const shouldUseSkillsMode = isSkillsQuestion(lastMessage);
     const shouldUseRelationshipMode = isRelationshipQuestion(lastMessage);
     const shouldUseLocationMode = isLocationQuestion(lastMessage);
     const requestOrigin = new URL(req.url).origin;
@@ -360,25 +483,37 @@ export async function POST(req: Request) {
       return createFixedTextResponse(`[Click here to see Kirubel's CV](${cvAbsoluteUrl})`);
     }
 
-    if (shouldUseAboutMode || shouldUseContactMode) {
+    if (shouldUseContactMode) {
       const cvLine = cvAbsoluteUrl
         ? `- CV: [Click here to see Kirubel's CV](${cvAbsoluteUrl})`
         : '- CV: Not uploaded yet.';
 
-      return createFixedTextResponse(`Kirubel Adisu Firew is a 4th year Software Engineering student at AMU, focused on resilient systems, clean code, and practical AI/web products.\n\nContact and links:\n- Email: akirubel339@gmail.com\n- LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339\n- Telegram: https://t.me/officialkira\n- Instagram: https://instagram.com/kiras857\n- Portfolio: https://kira-portfolio-bice.vercel.app/\n${cvLine}`);
-    }
-    const mergedProfileContext = personalContext.trim()
-      ? `${DEFAULT_PROFILE_CONTEXT}\n\nUploaded profile additions:\n${personalContext.slice(0, 3000)}`
-      : DEFAULT_PROFILE_CONTEXT;
+      const phoneLines = contactData.phones.map(phone => `- Phone: ${phone}`).join('\n');
 
-    const personalContextInstruction = `Personal profile and photo description (trusted source):\n${mergedProfileContext}`;
+      return createFixedTextResponse(`You can reach Kirubel through:\n${phoneLines}\n- Email: ${contactData.email}\n- LinkedIn: ${contactData.linkedIn}\n- Telegram: ${contactData.telegram}\n- Instagram: ${contactData.instagram}\n- Portfolio: ${contactData.portfolio}\n${cvLine}`);
+    }
+
+    if (shouldUseAboutMode) {
+      const cvLine = cvAbsoluteUrl
+        ? `- CV: [Click here to see Kirubel's CV](${cvAbsoluteUrl})`
+        : '- CV: Not uploaded yet.';
+
+      const phoneLines = contactData.phones.map(phone => `- Phone: ${phone}`).join('\n');
+
+      return createFixedTextResponse(`${aboutSummary}\n\nContact and links:\n${phoneLines}\n- Email: ${contactData.email}\n- LinkedIn: ${contactData.linkedIn}\n- Telegram: ${contactData.telegram}\n- Instagram: ${contactData.instagram}\n- Portfolio: ${contactData.portfolio}\n${cvLine}`);
+    }
+
+    if (shouldUseSkillsMode) {
+      return createFixedTextResponse(`${skillsSummary}\n\nIf you want, I can also share his projects, credentials, and CV link.`);
+    }
+    const personalContextInstruction = `Personal profile and photo description (trusted source):\n${cleanedProfileContext.slice(0, 3000)}`;
 
     const contextInstruction = contextForPrompt
       ? `Context: ${contextForPrompt}`
       : 'Use general profile knowledge and answer confidently in assistant tone.';
 
     const personaInstruction =
-      'You are Kirubel\'s AI assistant. Never claim to be Kirubel. Speak about him in third person (he/him, Kirubel), unless the user explicitly asks for a quoted first-person introduction.';
+      'You are Kirubel\'s AI assistant. Never claim to be Kirubel. Always speak about him in third person (he/him, Kirubel). Never answer as if you are Kirubel.';
 
     const pictureSafetyInstruction = shouldUsePersonalContext
       ? profileImageAbsoluteUrl
@@ -392,11 +527,13 @@ There is no other image available besides the one already shown.`
 
     const contactInstruction = shouldUseContactMode
       ? `For contact questions about Kirubel: output exactly this list and nothing else:
-- Email: akirubel339@gmail.com
-- LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339
-- Telegram: https://t.me/officialkira
-    - Instagram: https://instagram.com/kiras857
-    - Portfolio: https://kira-portfolio-bice.vercel.app/`
+- Phone: ${contactData.phones[0]}
+- Phone: ${contactData.phones[1]}
+- Email: ${contactData.email}
+- LinkedIn: ${contactData.linkedIn}
+- Telegram: ${contactData.telegram}
+- Instagram: ${contactData.instagram}
+- Portfolio: ${contactData.portfolio}`
       : '';
 
     const relationshipInstruction = shouldUseRelationshipMode

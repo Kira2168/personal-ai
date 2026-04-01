@@ -3,6 +3,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import Image from 'next/image';
+import {
+  FileText,
+  Globe,
+  Instagram,
+  Linkedin,
+  Mail,
+  MessageCircle,
+  Phone,
+} from 'lucide-react';
 
 const IMAGE_PATH_REGEX = /(?:https?:\/\/[^\s]+|\/\/[^\s]+|\/(?:uploads\/)?[^\s]+)\.(?:png|jpe?g|webp|gif)/gi;
 
@@ -70,6 +79,38 @@ function renderTextWithLinks(text: string) {
   const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+|www\.[^\s]+)\)/gi;
   const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
 
+  function getLinkIcon(href: string) {
+    const lowerHref = href.toLowerCase();
+
+    if (lowerHref.startsWith('mailto:') || lowerHref.includes('@')) return <Mail className="h-3.5 w-3.5" />;
+    if (lowerHref.startsWith('tel:') || lowerHref.includes('+251')) return <Phone className="h-3.5 w-3.5" />;
+    if (lowerHref.includes('linkedin.com')) return <Linkedin className="h-3.5 w-3.5" />;
+    if (lowerHref.includes('instagram.com')) return <Instagram className="h-3.5 w-3.5" />;
+    if (lowerHref.includes('t.me') || lowerHref.includes('telegram')) return <MessageCircle className="h-3.5 w-3.5" />;
+    if (lowerHref.endsWith('.pdf')) return <FileText className="h-3.5 w-3.5" />;
+
+    return <Globe className="h-3.5 w-3.5" />;
+  }
+
+  function renderLink(label: string, rawHref: string, key: string) {
+    const href = rawHref.startsWith('http') || rawHref.startsWith('mailto:') || rawHref.startsWith('tel:')
+      ? rawHref
+      : `https://${rawHref}`;
+
+    return (
+      <a
+        key={key}
+        href={href}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1.5 underline decoration-white/40 underline-offset-4 hover:opacity-80"
+      >
+        {getLinkIcon(href)}
+        <span>{label}</span>
+      </a>
+    );
+  }
+
   const markdownParts = text.split(markdownLinkRegex);
 
   return markdownParts.flatMap((part, index) => {
@@ -77,19 +118,8 @@ function renderTextWithLinks(text: string) {
     if (index % 3 === 1) {
       const label = part;
       const rawHref = markdownParts[index + 1] ?? '';
-      const href = rawHref.startsWith('http') ? rawHref : `https://${rawHref}`;
 
-      return (
-        <a
-          key={`md-link-${index}-${href}`}
-          href={href}
-          target="_blank"
-          rel="noreferrer"
-          className="underline decoration-white/40 underline-offset-4 hover:opacity-80"
-        >
-          {label}
-        </a>
-      );
+      return renderLink(label, rawHref, `md-link-${index}-${rawHref}`);
     }
 
     // Skip URL capture slot; it is consumed together with label.
@@ -101,18 +131,7 @@ function renderTextWithLinks(text: string) {
 
     return parts.map((urlPart, innerIndex) => {
       if (urlPart.match(urlRegex)) {
-        const href = urlPart.startsWith('http') ? urlPart : `https://${urlPart}`;
-        return (
-          <a
-            key={`link-${index}-${innerIndex}-${href}`}
-            href={href}
-            target="_blank"
-            rel="noreferrer"
-            className="underline decoration-white/40 underline-offset-4 hover:opacity-80"
-          >
-            {urlPart}
-          </a>
-        );
+        return renderLink(urlPart, urlPart, `link-${index}-${innerIndex}-${urlPart}`);
       }
 
       return <span key={`text-${index}-${innerIndex}`}>{urlPart}</span>;
@@ -161,9 +180,7 @@ export default function Chat() {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, error]);
 
-  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-
+  async function submitCurrentMessage() {
     const trimmedInput = input.trim();
 
     if (!trimmedInput) {
@@ -177,6 +194,23 @@ export default function Chat() {
       await sendMessage({ text: trimmedInput });
     } finally {
       setIsSending(false);
+    }
+  }
+
+  async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    await submitCurrentMessage();
+  }
+
+  async function handleInputKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+    const isDesktop = typeof window !== 'undefined' && window.innerWidth >= 640;
+
+    if (isDesktop && event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+
+      if (!isSending && input.trim()) {
+        await submitCurrentMessage();
+      }
     }
   }
 
@@ -294,6 +328,7 @@ export default function Chat() {
               value={input}
               placeholder="Message your AI..."
               onChange={event => setInput(event.target.value)}
+              onKeyDown={handleInputKeyDown}
               disabled={isSending}
             />
             {showContinue ? (
