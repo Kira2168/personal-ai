@@ -13,6 +13,68 @@ const ollama = createOpenAI({
 
 const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? 'llama3.2:3b';
 const OLLAMA_MAX_OUTPUT_TOKENS = Number(process.env.OLLAMA_MAX_OUTPUT_TOKENS ?? '1024');
+const DEFAULT_PROFILE_CONTEXT = `Kirubel Adisu is a 4th year Software Engineering student at AMU, graduating in 2027 (2019 E.C.).
+He is a designer/engineer focused on resilient systems, built on faith and clean code.
+
+Core stats:
+- Education: 4th Year Software Engineering @ AMU. Progress: 92%.
+- Tech stack: Next.js, React, Java, Python (AI), PHP, and Unity/C#.
+- Credentials: JS Algorithms (FreeCodeCamp), Python (UniAthena), Programming Fundamentals (Udacity).
+- Philosophy: Coding with Empathy.
+- Role: Counselor bridging tech with human support.
+
+Personal resilience:
+- Kirubel loved a girl once; she broke his heart and left.
+- Through his faith in God, he found the strength to rise again, stronger than before.
+- He now channels that pain into building resilient, unbreakable systems.
+
+Projects:
+- Emerald Car Dealership: Premium PHP/Tailwind commerce site.
+- AR Dragon System: Unity/C# AR tracking app.
+- Marburg Alert Ethiopia: Java epidemic monitoring system.
+- Dormitory Management: Java/MySQL housing system.
+
+Contact and links:
+- Email: akirubel339@gmail.com
+- LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339
+- Telegram: @officialkira
+- Instagram: @kiras857`;
+const PERSONAL_CONTEXT_FILES = new Set([
+  'me-profile.txt',
+  'me.txt',
+  'about-me.txt',
+  'bio.txt',
+  'picture.txt',
+  'photo.txt',
+  'me-picture.txt',
+]);
+
+function isPictureQuestion(text: string) {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('picture') ||
+    normalized.includes('photo') ||
+    normalized.includes('image') ||
+    normalized.includes('look like') ||
+    normalized.includes('your face') ||
+    normalized.includes('about you') ||
+    normalized.includes('about kirubel')
+  );
+}
+
+function pickProfileImageUrl(files: string[]) {
+  const preferred = ['me.jpg', 'me.jpeg', 'me.png', 'me.webp'];
+  const lowerFiles = files.map(file => file.toLowerCase());
+
+  for (const target of preferred) {
+    const index = lowerFiles.indexOf(target);
+    if (index >= 0) {
+      return `/uploads/${files[index]}`;
+    }
+  }
+
+  return '/me.jpg';
+}
 
 function getMessageText(message: unknown): string {
   if (!message || typeof message !== 'object') {
@@ -57,10 +119,12 @@ export async function POST(req: Request) {
     // Read uploaded text files to build context for retrieval.
     const uploadDir = path.join(process.cwd(), 'public/uploads');
     let rawContent = '';
-    let personaProfile = '';
+    let personalContext = '';
+    let profileImageUrl = '/me.jpg';
 
     try {
       const files = await readdir(uploadDir);
+      profileImageUrl = pickProfileImageUrl(files);
 
       for (const file of files) {
         if (file.endsWith('.txt')) {
@@ -68,9 +132,9 @@ export async function POST(req: Request) {
           rawContent += content;
           rawContent += '\n';
 
-          if (file.toLowerCase() === 'me-profile.txt' || file.toLowerCase() === 'me.txt') {
-            personaProfile += content;
-            personaProfile += '\n';
+          if (PERSONAL_CONTEXT_FILES.has(file.toLowerCase())) {
+            personalContext += content;
+            personalContext += '\n';
           }
         }
       }
@@ -80,14 +144,23 @@ export async function POST(req: Request) {
 
     const specificContext = await findRelevantContent(lastMessage, rawContent);
     const contextForPrompt = specificContext.slice(0, 8000);
+    const shouldUsePersonalContext = isPictureQuestion(lastMessage);
+    const mergedProfileContext = personalContext.trim()
+      ? `${DEFAULT_PROFILE_CONTEXT}\n\nUploaded profile additions:\n${personalContext.slice(0, 3000)}`
+      : DEFAULT_PROFILE_CONTEXT;
+
+    const personalContextInstruction = `Personal profile and photo description (trusted source):\n${mergedProfileContext}`;
 
     const contextInstruction = contextForPrompt
       ? `Context: ${contextForPrompt}`
       : 'No relevant uploaded context found. Answer from general knowledge.';
 
-    const personaInstruction = personaProfile.trim()
-      ? `Persona profile (speak in this style when answering):\n${personaProfile.slice(0, 2500)}`
-      : 'If the user asks for first-person answers, respond as Kirubel in a friendly and clear style.';
+    const personaInstruction =
+      'You are Kirubel\'s AI assistant. Never claim to be Kirubel. Speak about him in third person (he/him, Kirubel), unless the user explicitly asks for a quoted first-person introduction.';
+
+    const pictureSafetyInstruction = shouldUsePersonalContext
+      ? `For picture/photo questions: use only the personal profile/photo text. Do not invent visual details. Always include this direct image path in your answer: ${profileImageUrl}`
+      : '';
 
     const result = await streamText({
       model: ollama.chat(OLLAMA_MODEL),
@@ -99,7 +172,9 @@ Use short paragraphs or bullets and keep the answer focused.
 Provide complete answers and avoid cutting off mid-sentence.
 Use the provided context only when it is relevant to the user question.
 If the context is not sufficient, say what is missing clearly.
+${pictureSafetyInstruction}
 ${personaInstruction}
+${personalContextInstruction}
 ${contextInstruction}`,
       temperature: 0.15,
       topP: 0.85,
