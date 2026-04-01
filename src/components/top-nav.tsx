@@ -21,12 +21,6 @@ export default function TopNav() {
       <Link href="/" className={`nav-link ${isActive(pathname, '/') ? 'nav-link-active' : ''}`}>
         Chat
       </Link>
-      <Link
-        href="/dashboard"
-        className={`nav-link ${isActive(pathname, '/dashboard') ? 'nav-link-active' : ''}`}
-      >
-        Dashboard
-      </Link>
       <div className="ml-auto">
         <ThemeToggle />
       </div>
