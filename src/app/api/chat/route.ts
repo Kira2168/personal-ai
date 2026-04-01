@@ -61,11 +61,28 @@ function isPictureQuestion(text: string) {
     normalized.includes('image') ||
     normalized.includes('profile picture') ||
     normalized.includes('profile photo') ||
-    normalized.includes('show me') ||
     normalized.includes('look like') ||
-    normalized.includes('your face') ||
-    normalized.includes('about you') ||
-    normalized.includes('about kirubel')
+    normalized.includes('your face')
+  );
+}
+
+function isCvQuestion(text: string) {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('cv') ||
+    normalized.includes('resume') ||
+    normalized.includes('curriculum vitae')
+  );
+}
+
+function isAboutKirubelQuestion(text: string) {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('about kirubel') ||
+    normalized.includes('tell me about kirubel') ||
+    normalized.includes('who is kirubel') ||
+    normalized.includes('about him') ||
+    normalized.includes('about me')
   );
 }
 
@@ -140,6 +157,29 @@ function listUploadedImageUrls(files: string[]) {
   return files
     .filter(file => /\.(png|jpe?g|webp|gif)$/i.test(file))
     .map(file => `/uploads/${file}`);
+}
+
+function toUploadUrl(file: string) {
+  const encoded = encodeURIComponent(file)
+    .replace(/\(/g, '%28')
+    .replace(/\)/g, '%29');
+  return `/uploads/${encoded}`;
+}
+
+function pickCvUrl(files: string[]) {
+  const pdfFiles = files.filter(file => /\.(pdf|docx?)$/i.test(file));
+
+  if (pdfFiles.length === 0) {
+    return '';
+  }
+
+  const prioritized = [...pdfFiles].sort((a, b) => {
+    const aScore = /(cv|resume|curriculum)/i.test(a) ? 1 : 0;
+    const bScore = /(cv|resume|curriculum)/i.test(b) ? 1 : 0;
+    return bScore - aScore;
+  });
+
+  return toUploadUrl(prioritized[0]);
 }
 
 function normalizeToPath(value: string) {
@@ -240,6 +280,7 @@ export async function POST(req: Request) {
     let rawContent = '';
     let personalContext = '';
     let profileImageUrl = '/me.jpg';
+    let cvUrl = '';
     let noAlternativeImage = false;
     let userAskedPicture = isPictureQuestion(lastMessage);
     const userAskedAnotherPicture = wantsAnotherPicture(lastMessage);
@@ -247,6 +288,7 @@ export async function POST(req: Request) {
     try {
       const files = await readdir(uploadDir);
       profileImageUrl = pickProfileImageUrl(files);
+      cvUrl = pickCvUrl(files);
       const uploadedImageUrls = listUploadedImageUrls(files);
       const shownImagePaths = collectShownImagePaths(safeMessages);
 
@@ -287,10 +329,13 @@ export async function POST(req: Request) {
     const contextForPrompt = specificContext.slice(0, 8000);
     const shouldUsePersonalContext = isPictureQuestion(lastMessage);
     const shouldUseContactMode = isContactQuestion(lastMessage);
+    const shouldUseCvMode = isCvQuestion(lastMessage);
+    const shouldUseAboutMode = isAboutKirubelQuestion(lastMessage);
     const shouldUseRelationshipMode = isRelationshipQuestion(lastMessage);
     const shouldUseLocationMode = isLocationQuestion(lastMessage);
     const requestOrigin = new URL(req.url).origin;
     const profileImageAbsoluteUrl = profileImageUrl ? `${requestOrigin}${profileImageUrl}` : '';
+    const cvAbsoluteUrl = cvUrl ? `${requestOrigin}${cvUrl}` : '';
 
     // Deterministic picture replies avoid model hallucinations.
     if (userAskedPicture) {
@@ -305,6 +350,22 @@ export async function POST(req: Request) {
       return createFixedTextResponse(
         "Kirubel is currently based in Ethiopia and studying Software Engineering at AMU. His exact current residence is private and not publicly shared.",
       );
+    }
+
+    if (shouldUseCvMode) {
+      if (!cvAbsoluteUrl) {
+        return createFixedTextResponse('Kirubel\'s CV is not uploaded yet. Please upload a CV file (PDF/DOCX) to public/uploads first.');
+      }
+
+      return createFixedTextResponse(`[Click here to see Kirubel's CV](${cvAbsoluteUrl})`);
+    }
+
+    if (shouldUseAboutMode || shouldUseContactMode) {
+      const cvLine = cvAbsoluteUrl
+        ? `- CV: [Click here to see Kirubel's CV](${cvAbsoluteUrl})`
+        : '- CV: Not uploaded yet.';
+
+      return createFixedTextResponse(`Kirubel Adisu Firew is a 4th year Software Engineering student at AMU, focused on resilient systems, clean code, and practical AI/web products.\n\nContact and links:\n- Email: akirubel339@gmail.com\n- LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339\n- Telegram: https://t.me/officialkira\n- Instagram: https://instagram.com/kiras857\n- Portfolio: https://kira-portfolio-bice.vercel.app/\n${cvLine}`);
     }
     const mergedProfileContext = personalContext.trim()
       ? `${DEFAULT_PROFILE_CONTEXT}\n\nUploaded profile additions:\n${personalContext.slice(0, 3000)}`

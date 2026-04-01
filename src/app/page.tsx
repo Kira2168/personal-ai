@@ -67,26 +67,56 @@ function removeImagePaths(text: string) {
 }
 
 function renderTextWithLinks(text: string) {
-  const urlRegex = /(https?:\/\/[^\s)]+|www\.[^\s)]+)/gi;
-  const parts = text.split(urlRegex);
+  const markdownLinkRegex = /\[([^\]]+)\]\((https?:\/\/[^\s]+|www\.[^\s]+)\)/gi;
+  const urlRegex = /(https?:\/\/[^\s]+|www\.[^\s]+)/gi;
 
-  return parts.map((part, index) => {
-    if (part.match(urlRegex)) {
-      const href = part.startsWith('http') ? part : `https://${part}`;
+  const markdownParts = text.split(markdownLinkRegex);
+
+  return markdownParts.flatMap((part, index) => {
+    // Split result shape for regex with two captures is: text, label, url, text, ...
+    if (index % 3 === 1) {
+      const label = part;
+      const rawHref = markdownParts[index + 1] ?? '';
+      const href = rawHref.startsWith('http') ? rawHref : `https://${rawHref}`;
+
       return (
         <a
-          key={`link-${index}-${part}`}
+          key={`md-link-${index}-${href}`}
           href={href}
           target="_blank"
           rel="noreferrer"
           className="underline decoration-white/40 underline-offset-4 hover:opacity-80"
         >
-          {part}
+          {label}
         </a>
       );
     }
 
-    return <span key={`text-${index}`}>{part}</span>;
+    // Skip URL capture slot; it is consumed together with label.
+    if (index % 3 === 2) {
+      return [];
+    }
+
+    const parts = part.split(urlRegex);
+
+    return parts.map((urlPart, innerIndex) => {
+      if (urlPart.match(urlRegex)) {
+        const href = urlPart.startsWith('http') ? urlPart : `https://${urlPart}`;
+        return (
+          <a
+            key={`link-${index}-${innerIndex}-${href}`}
+            href={href}
+            target="_blank"
+            rel="noreferrer"
+            className="underline decoration-white/40 underline-offset-4 hover:opacity-80"
+          >
+            {urlPart}
+          </a>
+        );
+      }
+
+      return <span key={`text-${index}-${innerIndex}`}>{urlPart}</span>;
+    });
   });
 }
 
