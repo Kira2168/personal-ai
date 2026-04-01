@@ -37,8 +37,8 @@ Projects:
 Contact and links:
 - Email: akirubel339@gmail.com
 - LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339
-- Telegram: @officialkira
-- Instagram: @kiras857`;
+- Telegram: https://t.me/officialkira
+- Instagram: https://instagram.com/kiras857`;
 const PERSONAL_CONTEXT_FILES = new Set([
   'me-profile.txt',
   'me.txt',
@@ -53,12 +53,42 @@ function isPictureQuestion(text: string) {
   const normalized = text.toLowerCase();
   return (
     normalized.includes('picture') ||
+    normalized.includes('pic') ||
     normalized.includes('photo') ||
     normalized.includes('image') ||
+    normalized.includes('profile picture') ||
+    normalized.includes('profile photo') ||
+    normalized.includes('show me') ||
     normalized.includes('look like') ||
     normalized.includes('your face') ||
     normalized.includes('about you') ||
     normalized.includes('about kirubel')
+  );
+}
+
+function isContactQuestion(text: string) {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('contact') ||
+    normalized.includes('reach') ||
+    normalized.includes('get kirubel') ||
+    normalized.includes('how can i get') ||
+    normalized.includes('email') ||
+    normalized.includes('linkedin') ||
+    normalized.includes('telegram') ||
+    normalized.includes('instagram')
+  );
+}
+
+function isRelationshipQuestion(text: string) {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('relationship') ||
+    normalized.includes('girlfriend') ||
+    normalized.includes('boyfriend') ||
+    normalized.includes('love life') ||
+    normalized.includes('single') ||
+    normalized.includes('dating')
   );
 }
 
@@ -145,6 +175,10 @@ export async function POST(req: Request) {
     const specificContext = await findRelevantContent(lastMessage, rawContent);
     const contextForPrompt = specificContext.slice(0, 8000);
     const shouldUsePersonalContext = isPictureQuestion(lastMessage);
+    const shouldUseContactMode = isContactQuestion(lastMessage);
+    const shouldUseRelationshipMode = isRelationshipQuestion(lastMessage);
+    const requestOrigin = new URL(req.url).origin;
+    const profileImageAbsoluteUrl = `${requestOrigin}${profileImageUrl}`;
     const mergedProfileContext = personalContext.trim()
       ? `${DEFAULT_PROFILE_CONTEXT}\n\nUploaded profile additions:\n${personalContext.slice(0, 3000)}`
       : DEFAULT_PROFILE_CONTEXT;
@@ -159,7 +193,22 @@ export async function POST(req: Request) {
       'You are Kirubel\'s AI assistant. Never claim to be Kirubel. Speak about him in third person (he/him, Kirubel), unless the user explicitly asks for a quoted first-person introduction.';
 
     const pictureSafetyInstruction = shouldUsePersonalContext
-      ? `For picture/photo questions: use only the personal profile/photo text. Do not invent visual details. Always include this direct image path in your answer: ${profileImageUrl}`
+      ? `For picture/photo questions: never say you cannot display images. Reply in exactly two lines:
+Line 1: Kirubel's picture:
+Line 2: ${profileImageAbsoluteUrl}
+    Do not add extra text. Do not send Instagram or any other external link for picture requests.`
+      : '';
+
+    const contactInstruction = shouldUseContactMode
+      ? `For contact questions about Kirubel: output exactly this list and nothing else:
+- Email: akirubel339@gmail.com
+- LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339
+- Telegram: https://t.me/officialkira
+- Instagram: https://instagram.com/kiras857`
+      : '';
+
+    const relationshipInstruction = shouldUseRelationshipMode
+      ? 'For relationship questions: answer in assistant voice about Kirubel only. State this clearly: he loved a girl once, she left and broke his heart, and through faith in God he rose again stronger and now channels that pain into resilient systems. Do not speculate beyond this.'
       : '';
 
     const result = await streamText({
@@ -172,11 +221,14 @@ Use short paragraphs or bullets and keep the answer focused.
 Provide complete answers and avoid cutting off mid-sentence.
 Use the provided context only when it is relevant to the user question.
 If the context is not sufficient, say what is missing clearly.
+    Never claim you are unable to display images; provide the configured image path when asked for Kirubel's picture.
 ${pictureSafetyInstruction}
+${contactInstruction}
+    ${relationshipInstruction}
 ${personaInstruction}
 ${personalContextInstruction}
 ${contextInstruction}`,
-      temperature: 0.15,
+  temperature: shouldUsePersonalContext || shouldUseContactMode ? 0 : 0.15,
       topP: 0.85,
       frequencyPenalty: 0.8,
       maxOutputTokens: OLLAMA_MAX_OUTPUT_TOKENS,

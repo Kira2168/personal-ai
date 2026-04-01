@@ -33,6 +33,61 @@ function dedupeRepeatedBlocks(text: string) {
   return uniqueBlocks.join('\n\n');
 }
 
+function extractImagePaths(text: string) {
+  const matches =
+    text.match(/(?:https?:\/\/[^\s]+|\/\/[^\s]+|\/(?:uploads\/)?[^\s]+)\.(?:png|jpe?g|webp|gif)/gi) ?? [];
+  return [...new Set(matches.map(match => match.trim()))];
+}
+
+function normalizeImageSrc(src: string) {
+  const trimmed = src.trim();
+
+  if (!trimmed) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    return trimmed;
+  }
+
+  if (trimmed.startsWith('//')) {
+    return `http:${trimmed}`;
+  }
+
+  return trimmed.startsWith('/') ? trimmed : `/${trimmed}`;
+}
+
+function removeImagePaths(text: string) {
+  return text
+    .replace(/\/(?:uploads\/)?[^\s]+\.(?:png|jpe?g|webp|gif)/gi, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+
+function renderTextWithLinks(text: string) {
+  const urlRegex = /(https?:\/\/[^\s)]+|www\.[^\s)]+)/gi;
+  const parts = text.split(urlRegex);
+
+  return parts.map((part, index) => {
+    if (part.match(urlRegex)) {
+      const href = part.startsWith('http') ? part : `https://${part}`;
+      return (
+        <a
+          key={`link-${index}-${part}`}
+          href={href}
+          target="_blank"
+          rel="noreferrer"
+          className="underline decoration-white/40 underline-offset-4 hover:opacity-80"
+        >
+          {part}
+        </a>
+      );
+    }
+
+    return <span key={`text-${index}`}>{part}</span>;
+  });
+}
+
 function isLikelyTruncated(text: string) {
   const trimmed = text.trim();
 
@@ -129,6 +184,8 @@ export default function Chat() {
             const isUser = m.role === 'user';
             const rawContent = getMessageText(m.parts);
             const content = isUser ? rawContent : dedupeRepeatedBlocks(rawContent);
+            const imagePaths = isUser ? [] : extractImagePaths(content);
+            const textContent = isUser ? content : removeImagePaths(content);
 
             return (
               <div
@@ -152,7 +209,21 @@ export default function Chat() {
                   <p className="chat-bubble-label mb-1 text-[10px] font-semibold uppercase tracking-[0.16em] sm:text-[11px] sm:tracking-[0.18em]">
                     {isUser ? 'You' : 'Assistant'}
                   </p>
-                  {content || '...'}
+                  {textContent ? <p>{renderTextWithLinks(textContent)}</p> : null}
+                  {imagePaths.length > 0 ? (
+                    <div className={textContent ? 'mt-3 space-y-2' : 'space-y-2'}>
+                      {imagePaths.map(src => (
+                        <img
+                          key={`${m.id}-${src}`}
+                          src={normalizeImageSrc(src)}
+                          alt="Shared image"
+                          className="h-auto w-full max-w-[440px] rounded-xl border border-white/20 object-cover"
+                          loading="lazy"
+                        />
+                      ))}
+                    </div>
+                  ) : null}
+                  {!textContent && imagePaths.length === 0 ? '...' : null}
                 </article>
               </div>
             );
