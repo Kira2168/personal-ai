@@ -121,7 +121,7 @@ export default function Chat() {
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
           {messages.length === 0 ? (
             <div className="chat-empty mx-auto mt-14 max-w-xl rounded-2xl p-5 text-center">
-              Ask about your uploaded docs, brainstorm ideas, or request summaries.
+              Ask me about Kirubel or anything else.
             </div>
           ) : null}
 
