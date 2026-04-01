@@ -4,6 +4,8 @@ import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import Image from 'next/image';
 
+const IMAGE_PATH_REGEX = /(?:https?:\/\/[^\s]+|\/\/[^\s]+|\/(?:uploads\/)?[^\s]+)\.(?:png|jpe?g|webp|gif)/gi;
+
 function getMessageText(parts: Array<{ type: string; text?: string }>) {
   return parts
     .filter(part => part.type === 'text' && typeof part.text === 'string')
@@ -34,8 +36,7 @@ function dedupeRepeatedBlocks(text: string) {
 }
 
 function extractImagePaths(text: string) {
-  const matches =
-    text.match(/(?:https?:\/\/[^\s]+|\/\/[^\s]+|\/(?:uploads\/)?[^\s]+)\.(?:png|jpe?g|webp|gif)/gi) ?? [];
+  const matches = text.match(IMAGE_PATH_REGEX) ?? [];
   return [...new Set(matches.map(match => match.trim()))];
 }
 
@@ -59,7 +60,8 @@ function normalizeImageSrc(src: string) {
 
 function removeImagePaths(text: string) {
   return text
-    .replace(/\/(?:uploads\/)?[^\s]+\.(?:png|jpe?g|webp|gif)/gi, '')
+    .replace(IMAGE_PATH_REGEX, '')
+    .replace(/(^|\n)\s*https?:\s*(?=\n|$)/gi, '$1')
     .replace(/\n{3,}/g, '\n\n')
     .trim();
 }

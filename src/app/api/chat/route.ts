@@ -1,5 +1,6 @@
 import { createOpenAI } from '@ai-sdk/openai';
 import { convertToModelMessages, streamText } from 'ai';
+import { createUIMessageStream, createUIMessageStreamResponse } from 'ai';
 import type { UIMessage } from 'ai';
 import { readFile, readdir } from 'fs/promises';
 import path from 'path';
@@ -38,7 +39,8 @@ Contact and links:
 - Email: akirubel339@gmail.com
 - LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339
 - Telegram: https://t.me/officialkira
-- Instagram: https://instagram.com/kiras857`;
+- Instagram: https://instagram.com/kiras857
+- Portfolio: https://kira-portfolio-bice.vercel.app/`;
 const PERSONAL_CONTEXT_FILES = new Set([
   'me-profile.txt',
   'me.txt',
@@ -48,6 +50,7 @@ const PERSONAL_CONTEXT_FILES = new Set([
   'photo.txt',
   'me-picture.txt',
 ]);
+const IMAGE_URL_REGEX = /(?:https?:\/\/[^\s]+|\/uploads\/[^\s]+)\.(?:png|jpe?g|webp|gif)/gi;
 
 function isPictureQuestion(text: string) {
   const normalized = text.toLowerCase();
@@ -66,6 +69,17 @@ function isPictureQuestion(text: string) {
   );
 }
 
+function wantsAnotherPicture(text: string) {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('another') ||
+    normalized.includes('other one') ||
+    normalized.includes('different') ||
+    normalized.includes('not this') ||
+    normalized.includes('next one')
+  );
+}
+
 function isContactQuestion(text: string) {
   const normalized = text.toLowerCase();
   return (
@@ -76,7 +90,9 @@ function isContactQuestion(text: string) {
     normalized.includes('email') ||
     normalized.includes('linkedin') ||
     normalized.includes('telegram') ||
-    normalized.includes('instagram')
+    normalized.includes('instagram') ||
+    normalized.includes('portfolio') ||
+    normalized.includes('website')
   );
 }
 
@@ -92,6 +108,20 @@ function isRelationshipQuestion(text: string) {
   );
 }
 
+function isLocationQuestion(text: string) {
+  const normalized = text.toLowerCase();
+  return (
+    normalized.includes('where he live') ||
+    normalized.includes('where does he live') ||
+    normalized.includes('where is he living') ||
+    normalized.includes('where does kirubel live') ||
+    normalized.includes('where is kirubel now') ||
+    normalized.includes('current location') ||
+    normalized.includes('where he stay') ||
+    normalized.includes('residence')
+  );
+}
+
 function pickProfileImageUrl(files: string[]) {
   const preferred = ['me.jpg', 'me.jpeg', 'me.png', 'me.webp'];
   const lowerFiles = files.map(file => file.toLowerCase());
@@ -104,6 +134,65 @@ function pickProfileImageUrl(files: string[]) {
   }
 
   return '/me.jpg';
+}
+
+function listUploadedImageUrls(files: string[]) {
+  return files
+    .filter(file => /\.(png|jpe?g|webp|gif)$/i.test(file))
+    .map(file => `/uploads/${file}`);
+}
+
+function normalizeToPath(value: string) {
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
+    try {
+      return new URL(trimmed).pathname;
+    } catch {
+      return trimmed;
+    }
+  }
+
+  return trimmed;
+}
+
+function collectShownImagePaths(messages: UIMessage[]) {
+  const shown = new Set<string>();
+
+  for (const message of messages) {
+    if (message.role !== 'assistant' || !Array.isArray(message.parts)) {
+      continue;
+    }
+
+    for (const part of message.parts) {
+      if (part.type === 'text' && typeof part.text === 'string') {
+        const matches = part.text.match(IMAGE_URL_REGEX) ?? [];
+        for (const match of matches) {
+          shown.add(normalizeToPath(match));
+        }
+      }
+    }
+  }
+
+  return shown;
+}
+
+function createFixedTextResponse(text: string) {
+  const stream = createUIMessageStream({
+    execute: ({ writer }) => {
+      const writePart = (part: Parameters<typeof writer.write>[0]) => writer.write(part);
+
+      writePart({ type: 'start' });
+      writePart({ type: 'start-step' });
+      writePart({ type: 'text-start', id: '0' });
+      writePart({ type: 'text-delta', id: '0', delta: text });
+      writePart({ type: 'text-end', id: '0' });
+      writePart({ type: 'finish-step' });
+      writePart({ type: 'finish', finishReason: 'stop' });
+    },
+  });
+
+  return createUIMessageStreamResponse({ stream });
 }
 
 function getMessageText(message: unknown): string {
@@ -151,10 +240,32 @@ export async function POST(req: Request) {
     let rawContent = '';
     let personalContext = '';
     let profileImageUrl = '/me.jpg';
+    let noAlternativeImage = false;
+    let userAskedPicture = isPictureQuestion(lastMessage);
+    const userAskedAnotherPicture = wantsAnotherPicture(lastMessage);
 
     try {
       const files = await readdir(uploadDir);
       profileImageUrl = pickProfileImageUrl(files);
+      const uploadedImageUrls = listUploadedImageUrls(files);
+      const shownImagePaths = collectShownImagePaths(safeMessages);
+
+      if (!userAskedPicture && userAskedAnotherPicture && shownImagePaths.size > 0) {
+        userAskedPicture = true;
+      }
+
+      if (uploadedImageUrls.length > 0 && userAskedPicture) {
+        if (userAskedAnotherPicture) {
+          const nextImage = uploadedImageUrls.find(url => !shownImagePaths.has(url));
+          if (nextImage) {
+            profileImageUrl = nextImage;
+          } else {
+            noAlternativeImage = true;
+          }
+        } else {
+          profileImageUrl = uploadedImageUrls[0];
+        }
+      }
 
       for (const file of files) {
         if (file.endsWith('.txt')) {
@@ -177,8 +288,24 @@ export async function POST(req: Request) {
     const shouldUsePersonalContext = isPictureQuestion(lastMessage);
     const shouldUseContactMode = isContactQuestion(lastMessage);
     const shouldUseRelationshipMode = isRelationshipQuestion(lastMessage);
+    const shouldUseLocationMode = isLocationQuestion(lastMessage);
     const requestOrigin = new URL(req.url).origin;
-    const profileImageAbsoluteUrl = `${requestOrigin}${profileImageUrl}`;
+    const profileImageAbsoluteUrl = profileImageUrl ? `${requestOrigin}${profileImageUrl}` : '';
+
+    // Deterministic picture replies avoid model hallucinations.
+    if (userAskedPicture) {
+      if (noAlternativeImage) {
+        return createFixedTextResponse('There is no other image available besides the one already shown.');
+      }
+
+      return createFixedTextResponse(`Kirubel's picture:\n${profileImageAbsoluteUrl}`);
+    }
+
+    if (shouldUseLocationMode) {
+      return createFixedTextResponse(
+        "Kirubel is currently based in Ethiopia and studying Software Engineering at AMU. His exact current residence is private and not publicly shared.",
+      );
+    }
     const mergedProfileContext = personalContext.trim()
       ? `${DEFAULT_PROFILE_CONTEXT}\n\nUploaded profile additions:\n${personalContext.slice(0, 3000)}`
       : DEFAULT_PROFILE_CONTEXT;
@@ -187,16 +314,19 @@ export async function POST(req: Request) {
 
     const contextInstruction = contextForPrompt
       ? `Context: ${contextForPrompt}`
-      : 'No relevant uploaded context found. Answer from general knowledge.';
+      : 'Use general profile knowledge and answer confidently in assistant tone.';
 
     const personaInstruction =
       'You are Kirubel\'s AI assistant. Never claim to be Kirubel. Speak about him in third person (he/him, Kirubel), unless the user explicitly asks for a quoted first-person introduction.';
 
     const pictureSafetyInstruction = shouldUsePersonalContext
-      ? `For picture/photo questions: never say you cannot display images. Reply in exactly two lines:
+      ? profileImageAbsoluteUrl
+        ? `For picture/photo questions: never say you cannot display images. Reply in exactly two lines:
 Line 1: Kirubel's picture:
 Line 2: ${profileImageAbsoluteUrl}
     Do not add extra text. Do not send Instagram or any other external link for picture requests.`
+        : `For picture/photo questions asking for another image: reply exactly this line and nothing else:
+There is no other image available besides the one already shown.`
       : '';
 
     const contactInstruction = shouldUseContactMode
@@ -204,7 +334,8 @@ Line 2: ${profileImageAbsoluteUrl}
 - Email: akirubel339@gmail.com
 - LinkedIn: https://www.linkedin.com/in/kirubel-adisu-ns339
 - Telegram: https://t.me/officialkira
-- Instagram: https://instagram.com/kiras857`
+    - Instagram: https://instagram.com/kiras857
+    - Portfolio: https://kira-portfolio-bice.vercel.app/`
       : '';
 
     const relationshipInstruction = shouldUseRelationshipMode
@@ -220,7 +351,9 @@ Do not repeat the same sentence or paragraph.
 Use short paragraphs or bullets and keep the answer focused.
 Provide complete answers and avoid cutting off mid-sentence.
 Use the provided context only when it is relevant to the user question.
-If the context is not sufficient, say what is missing clearly.
+Never mention uploads, hidden context, internal sources, or retrieval process.
+If a detail is unknown, answer gracefully and naturally without saying "based on context".
+For private personal details, give a respectful privacy-safe answer.
     Never claim you are unable to display images; provide the configured image path when asked for Kirubel's picture.
 ${pictureSafetyInstruction}
 ${contactInstruction}
