@@ -296,6 +296,40 @@ body::after {
   color: var(--chat-empty-text);
 }
 
+.hero-shell {
+  background:
+    radial-gradient(circle at 18% 15%, color-mix(in srgb, var(--ring-a), transparent 35%), transparent 28%),
+    radial-gradient(circle at 86% 85%, color-mix(in srgb, var(--ring-c), transparent 40%), transparent 30%),
+    var(--surface);
+}
+
+.hero-subtitle {
+  color: color-mix(in srgb, var(--foreground), transparent 28%);
+  max-width: 38ch;
+}
+
+.hero-pill {
+  background: color-mix(in srgb, var(--surface), transparent 24%);
+  border: 1px solid color-mix(in srgb, var(--surface-border), transparent 12%);
+  color: color-mix(in srgb, var(--foreground), transparent 24%);
+}
+
+.quick-title {
+  color: color-mix(in srgb, var(--foreground), transparent 40%);
+}
+
+.quick-chip {
+  border: 1px solid color-mix(in srgb, var(--composer-input-border), transparent 10%);
+  background: color-mix(in srgb, var(--composer-input-bg), transparent 8%);
+  color: color-mix(in srgb, var(--foreground), transparent 10%);
+}
+
+.quick-chip:hover {
+  transform: translateY(-1px);
+  background: color-mix(in srgb, var(--composer-input-bg), white 8%);
+  border-color: color-mix(in srgb, var(--status-border), transparent 30%);
+}
+
 .chat-error {
   background: var(--chat-error-bg);
   border: 1px solid var(--chat-error-border);
@@ -320,6 +354,10 @@ body::after {
 
 .composer-textarea::placeholder {
   color: var(--composer-placeholder);
+}
+
+.composer-hint {
+  color: color-mix(in srgb, var(--foreground), transparent 45%);
 }
 
 .thinking-dot {

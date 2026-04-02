@@ -4,11 +4,13 @@ import { useEffect, useRef, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import Image from 'next/image';
 import {
+  ArrowUp,
   FileText,
   Globe,
   Instagram,
   Linkedin,
   Mail,
+  Sparkles,
   MessageCircle,
   Phone,
 } from 'lucide-react';
@@ -175,6 +177,12 @@ export default function Chat() {
   const latestAssistantMessage = [...messages].reverse().find(message => message.role === 'assistant');
   const latestAssistantText = latestAssistantMessage ? getMessageText(latestAssistantMessage.parts) : '';
   const showContinue = !!latestAssistantMessage && isLikelyTruncated(latestAssistantText);
+  const quickPrompts = [
+    'Tell me about Kirubel in short.',
+    'Show me Kirubel picture.',
+    'How can I contact Kirubel?',
+    'Show me his CV.',
+  ];
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
@@ -224,26 +232,62 @@ export default function Chat() {
     }
   }
 
+  async function handleQuickPrompt(prompt: string) {
+    if (isSending) return;
+
+    setIsSending(true);
+    try {
+      await sendMessage({ text: prompt });
+    } finally {
+      setIsSending(false);
+    }
+  }
+
   return (
     <section className="relative mx-auto flex min-h-[calc(100vh-72px)] w-full max-w-5xl flex-col px-3 pb-4 pt-4 sm:px-6 sm:pb-6 sm:pt-6">
-      <header className="glass-card relative mb-3 rounded-3xl px-4 py-4 sm:mb-4 sm:px-7">
+      <header className="glass-card hero-shell relative mb-3 overflow-hidden rounded-3xl px-4 py-4 sm:mb-4 sm:px-7 sm:py-5">
+        <div className="aura aura-1" />
+        <div className="aura aura-2" />
         <div className="flex items-center justify-between gap-4">
-          <div>
+          <div className="relative z-10">
             <p className="chat-kicker text-xs uppercase tracking-[0.24em]">Kirubel Personal AI</p>
-            <h1 className="chat-title mt-1 text-2xl font-bold sm:text-3xl">
-              Kirubel Personal AI Chat
-            </h1>
+            <h1 className="chat-title mt-1 text-2xl font-bold sm:text-3xl">Kirubel Personal AI Chat</h1>
+            <p className="hero-subtitle mt-2 text-sm sm:text-base">
+              Ask anything about Kirubel, projects, contacts, and portfolio links.
+            </p>
+            <div className="mt-3 flex flex-wrap gap-2">
+              <span className="hero-pill rounded-full px-3 py-1 text-xs font-semibold">Live Assistant</span>
+              <span className="hero-pill rounded-full px-3 py-1 text-xs font-semibold">CV + Contact Ready</span>
+            </div>
           </div>
-          <span className="status-pill rounded-full px-3 py-1 text-xs font-semibold">Online</span>
+          <span className="status-pill relative z-10 rounded-full px-3 py-1 text-xs font-semibold">Online</span>
         </div>
       </header>
 
       <div className="glass-card relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl">
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
           {messages.length === 0 ? (
-            <div className="chat-empty mx-auto mt-14 max-w-xl rounded-2xl p-5 text-center">
-              Ask me about Kirubel or anything else.
-            </div>
+            <>
+              <div className="chat-empty mx-auto mt-10 max-w-xl rounded-2xl p-5 text-center">
+                Ask me about Kirubel or anything else.
+              </div>
+              <div className="mx-auto max-w-2xl">
+                <p className="quick-title mb-2 text-xs font-semibold uppercase tracking-[0.2em]">Try these</p>
+                <div className="flex flex-wrap gap-2">
+                  {quickPrompts.map(prompt => (
+                    <button
+                      key={prompt}
+                      type="button"
+                      onClick={() => handleQuickPrompt(prompt)}
+                      disabled={isSending}
+                      className="quick-chip rounded-full px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {prompt}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </>
           ) : null}
 
           {messages.map(m => {
@@ -344,11 +388,14 @@ export default function Chat() {
             <button
               type="submit"
               disabled={isSending || !input.trim()}
-              className="send-button h-12 shrink-0 rounded-xl px-5 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
+              className="send-button inline-flex h-12 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Send
+              <Sparkles className="h-4 w-4" />
+              <span className="hidden sm:inline">Send</span>
+              <ArrowUp className="h-4 w-4" />
             </button>
           </div>
+          <p className="composer-hint mt-2 px-1 text-xs">Press Enter to send, Shift+Enter for new line.</p>
         </form>
       </div>
     </section>
