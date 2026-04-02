@@ -9,7 +9,9 @@
     "lint": "eslint",
     "tunnel:start": "powershell -ExecutionPolicy Bypass -File ./scripts/start-ollama-ngrok.ps1",
     "health:deploy": "powershell -ExecutionPolicy Bypass -File ./scripts/check-deploy-health.ps1",
-    "vercel:sync-ngrok": "powershell -ExecutionPolicy Bypass -File ./scripts/sync-ngrok-vercel.ps1"
+    "vercel:sync-ngrok": "powershell -ExecutionPolicy Bypass -File ./scripts/sync-ngrok-vercel.ps1",
+    "startup:enable": "powershell -ExecutionPolicy Bypass -File ./scripts/register-startup-task.ps1",
+    "startup:disable": "powershell -ExecutionPolicy Bypass -File ./scripts/unregister-startup-task.ps1"
   },
   "dependencies": {
     "@ai-sdk/google": "^3.0.43",
