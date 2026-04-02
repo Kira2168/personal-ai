@@ -106,6 +106,87 @@ function buildAboutSummary(profileContext: string) {
   return normalized.length > 8 ? normalized : DEFAULT_ABOUT_SUMMARY;
 }
 
+function getSectionText(profileContext: string, heading: string, nextHeadings: string[]) {
+  const normalized = profileContext.replace(/\r\n/g, '\n');
+  const headingRegex = new RegExp(`(^|\\n)${heading}\\n`, 'i');
+  const headingMatch = normalized.match(headingRegex);
+
+  if (!headingMatch || headingMatch.index === undefined) {
+    return '';
+  }
+
+  const startIndex = headingMatch.index + headingMatch[0].length;
+  const afterHeading = normalized.slice(startIndex);
+
+  let endIndex = afterHeading.length;
+  for (const nextHeading of nextHeadings) {
+    const nextRegex = new RegExp(`\\n${nextHeading}\\n`, 'i');
+    const nextMatch = afterHeading.match(nextRegex);
+    if (nextMatch && nextMatch.index !== undefined) {
+      endIndex = Math.min(endIndex, nextMatch.index);
+    }
+  }
+
+  return afterHeading.slice(0, endIndex).trim();
+}
+
+function buildInterestingAboutResponse(profileContext: string) {
+  const cleaned = normalizeAssistantVoice(sanitizePersonalContext(profileContext));
+  const summary = buildAboutSummary(profileContext);
+
+  const roots = getSectionText(cleaned, 'Roots & Foundation', [
+    'Academic & Professional Path',
+    'Technical Portfolio & Innovations',
+    'Technical Identity & Tools',
+    'Personal Life & Hobbies',
+  ])
+    .split('\n')
+    .find(line => line.trim().length > 20);
+
+  const academic = getSectionText(cleaned, 'Academic & Professional Path', [
+    'Technical Portfolio & Innovations',
+    'Technical Identity & Tools',
+    'Personal Life & Hobbies',
+  ])
+    .split('\n')
+    .find(line => line.trim().length > 20);
+
+  const tools = getSectionText(cleaned, 'Technical Identity & Tools', ['Personal Life & Hobbies'])
+    .split('\n')
+    .filter(line => /frontend|backend|data|simulation/i.test(line))
+    .slice(0, 3)
+    .map(line => line.trim());
+
+  const projects = getSectionText(cleaned, 'Technical Portfolio & Innovations', [
+    'Technical Identity & Tools',
+    'Personal Life & Hobbies',
+  ])
+    .split('\n')
+    .filter(line => /:\s/.test(line))
+    .slice(0, 4)
+    .map(line => line.trim());
+
+  const hobbies = getSectionText(cleaned, 'Personal Life & Hobbies', [])
+    .split('\n')
+    .filter(line => /gaming|interests|relationships/i.test(line))
+    .slice(0, 2)
+    .map(line => line.trim());
+
+  const lines = [
+    `${summary}`,
+    '',
+    'Journey snapshot:',
+  ];
+
+  if (roots) lines.push(`- Foundation: ${roots}`);
+  if (academic) lines.push(`- Current path: ${academic}`);
+  if (projects.length > 0) lines.push(`- Highlight projects: ${projects.join(' | ')}`);
+  if (tools.length > 0) lines.push(`- Technical identity: ${tools.join(' | ')}`);
+  if (hobbies.length > 0) lines.push(`- Beyond coding: ${hobbies.join(' | ')}`);
+
+  return lines.join('\n');
+}
+
 function isSkillsQuestion(text: string) {
   const normalized = text.toLowerCase();
   return (
@@ -446,7 +527,6 @@ export async function POST(req: Request) {
     const contextForPrompt = specificContext.slice(0, 8000);
     const effectiveProfileContext = getEffectiveProfileContext(personalContext);
     const cleanedProfileContext = normalizeAssistantVoice(sanitizePersonalContext(effectiveProfileContext));
-    const aboutSummary = buildAboutSummary(effectiveProfileContext);
     const skillsSummary = buildSkillsSummary(effectiveProfileContext);
     const contactData = extractContactData(effectiveProfileContext);
     const shouldUsePersonalContext = isPictureQuestion(lastMessage);
@@ -494,13 +574,14 @@ export async function POST(req: Request) {
     }
 
     if (shouldUseAboutMode) {
+      const interestingAbout = buildInterestingAboutResponse(effectiveProfileContext);
       const cvLine = cvAbsoluteUrl
         ? `- CV: [Click here to see Kirubel's CV](${cvAbsoluteUrl})`
         : '- CV: Not uploaded yet.';
 
       const phoneLines = contactData.phones.map(phone => `- Phone: ${phone}`).join('\n');
 
-      return createFixedTextResponse(`${aboutSummary}\n\nContact and links:\n${phoneLines}\n- Email: ${contactData.email}\n- LinkedIn: ${contactData.linkedIn}\n- Telegram: ${contactData.telegram}\n- Instagram: ${contactData.instagram}\n- Portfolio: ${contactData.portfolio}\n${cvLine}`);
+      return createFixedTextResponse(`${interestingAbout}\n\nContact and links:\n${phoneLines}\n- Email: ${contactData.email}\n- LinkedIn: ${contactData.linkedIn}\n- Telegram: ${contactData.telegram}\n- Instagram: ${contactData.instagram}\n- Portfolio: ${contactData.portfolio}\n${cvLine}`);
     }
 
     if (shouldUseSkillsMode) {

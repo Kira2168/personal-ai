@@ -3,3 +3,40 @@ When asked about Kirubel, answer in third person as his assistant and keep it sh
 His full name is Kirubel Adisu Firew.
 Phone: +251991899436
 Phone: +251978625330
+The Journey of Kirubel Adisu
+Roots & Foundation
+I was born on February 12, 2006, to my mother, Hana Getachew, and my father, Adisu Firew. As an only child, I developed a self-reliant and independent mindset early on, which naturally led me to the world of problem-solving and technology.
+
+Academic & Professional Path
+I am currently a student at Arba Minch University in Ethiopia, pursuing my passion for Software Engineering. My academic journey is currently paired with a Machine Learning Internship, where I focus on data science and NLP-based ticket categorization.
+
+Technical Portfolio & Innovations
+My work spans mobile platforms, web ecosystems, and immersive technologies:
+
+Marburg Alert Ethiopia: A specialized Android application built using Java and XML to provide real-time health alerts and official information.
+
+Emerald Car Dealership: A full-stack web platform developed with HTML, CSS, JavaScript, and PHP.
+
+AR Image Tracking: An immersive Unity project using C# that utilizes image tracking to detect a "Dragon" marker and trigger a 3D model popup in a virtual environment.
+
+Kirubel Chat: My personal AI project, showcasing my interest in building conversational interfaces.
+
+Lucy Gebeya: A functional e-commerce platform designed for digital commerce.
+
+Dormitory Management System: A desktop or backend application built using Java to streamline student housing administration.
+
+Technical Identity & Tools
+Frontend: Next.js, JavaScript, Tailwind CSS.
+
+Backend & Systems: Python (AI/ML), Django, Java, PHP.
+
+Data & Simulation: SQL, PostgreSQL, MongoDB, and Proteus for hardware-software simulation.
+
+Personal Life & Hobbies
+I believe in a balanced life where technology meets human connection:
+
+Relationships: I value the personal bonds I’ve formed, maintaining a private and meaningful relationship status as I grow.
+
+Gaming: I am a competitive player in PUBG Mobile and other video games, which keeps my strategic thinking sharp.
+
+Interests: Beyond code, I enjoy counseling, creative editing, and Photoshop.
