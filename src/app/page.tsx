@@ -256,7 +256,7 @@ export default function Chat() {
             <p className="hero-subtitle mt-2 text-sm sm:text-base">
               Ask anything about Kirubel, projects, contacts, and portfolio links.
             </p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-3 hidden flex-wrap gap-2 sm:flex">
               <span className="hero-pill rounded-full px-3 py-1 text-xs font-semibold">Live Assistant</span>
               <span className="hero-pill rounded-full px-3 py-1 text-xs font-semibold">CV + Contact Ready</span>
             </div>
@@ -269,14 +269,14 @@ export default function Chat() {
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
           <div className="mx-auto max-w-2xl">
             <p className="quick-title mb-2 text-xs font-semibold uppercase tracking-[0.2em]">Try these</p>
-            <div className="flex flex-wrap gap-2">
+            <div className="quick-strip flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible sm:pb-0">
               {quickPrompts.map(prompt => (
                 <button
                   key={prompt}
                   type="button"
                   onClick={() => handleQuickPrompt(prompt)}
                   disabled={isSending}
-                  className="quick-chip rounded-full px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
+                  className="quick-chip whitespace-nowrap rounded-full px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {prompt}
                 </button>
