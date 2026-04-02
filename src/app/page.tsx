@@ -172,6 +172,7 @@ export default function Chat() {
   const { messages, sendMessage, error } = useChat();
   const [input, setInput] = useState('');
   const [isSending, setIsSending] = useState(false);
+  const [isOnline, setIsOnline] = useState(true);
   const avatarSrc = '/me.jpg';
   const endRef = useRef<HTMLDivElement>(null);
   const latestAssistantMessage = [...messages].reverse().find(message => message.role === 'assistant');
@@ -189,10 +190,40 @@ export default function Chat() {
     endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages, error]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    async function checkStatus() {
+      try {
+        const response = await fetch('/api/status', { cache: 'no-store' });
+        const data = (await response.json()) as { online?: boolean };
+        if (mounted) {
+          setIsOnline(Boolean(data.online));
+        }
+      } catch {
+        if (mounted) {
+          setIsOnline(false);
+        }
+      }
+    }
+
+    checkStatus();
+    const interval = setInterval(checkStatus, 15000);
+
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
   async function submitCurrentMessage() {
     const trimmedInput = input.trim();
 
     if (!trimmedInput) {
+      return;
+    }
+
+    if (!isOnline) {
       return;
     }
 
@@ -234,7 +265,7 @@ export default function Chat() {
   }
 
   async function handleQuickPrompt(prompt: string) {
-    if (isSending) return;
+    if (isSending || !isOnline) return;
 
     setIsSending(true);
     try {
@@ -261,7 +292,13 @@ export default function Chat() {
               <span className="hero-pill rounded-full px-3 py-1 text-xs font-semibold">CV + Contact Ready</span>
             </div>
           </div>
-          <span className="status-pill relative z-10 rounded-full px-3 py-1 text-xs font-semibold">Online</span>
+          <span
+            className={`status-pill relative z-10 rounded-full px-3 py-1 text-xs font-semibold ${
+              isOnline ? 'status-pill-online' : 'status-pill-offline'
+            }`}
+          >
+            {isOnline ? 'Online' : 'Offline'}
+          </span>
         </div>
       </header>
 
@@ -275,7 +312,7 @@ export default function Chat() {
                   key={prompt}
                   type="button"
                   onClick={() => handleQuickPrompt(prompt)}
-                  disabled={isSending}
+                  disabled={isSending || !isOnline}
                   className="quick-chip whitespace-nowrap rounded-full px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {prompt}
@@ -283,6 +320,12 @@ export default function Chat() {
               ))}
             </div>
           </div>
+
+          {!isOnline ? (
+            <div className="chat-error mx-auto max-w-xl rounded-2xl p-4 text-sm">
+              Kirubel AI is currently offline because the model server is not available right now. Please try again when the server is back online.
+            </div>
+          ) : null}
 
           {messages.length === 0 ? (
             <div className="chat-empty mx-auto mt-10 max-w-xl rounded-2xl p-5 text-center">
@@ -370,16 +413,16 @@ export default function Chat() {
             <textarea
               className="composer-textarea max-h-36 min-h-12 w-full resize-y rounded-2xl px-4 py-3 text-sm outline-none focus:ring-2"
               value={input}
-              placeholder="Message your AI..."
               onChange={event => setInput(event.target.value)}
               onKeyDown={handleInputKeyDown}
-              disabled={isSending}
+              disabled={isSending || !isOnline}
+              placeholder={isOnline ? 'Message your AI...' : 'Kirubel AI is currently offline'}
             />
             {showContinue ? (
               <button
                 type="button"
                 onClick={handleContinue}
-                disabled={isSending}
+                disabled={isSending || !isOnline}
                 className="h-12 shrink-0 rounded-xl border border-white/15 px-4 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
               >
                 Continue
@@ -387,7 +430,7 @@ export default function Chat() {
             ) : null}
             <button
               type="submit"
-              disabled={isSending || !input.trim()}
+              disabled={isSending || !input.trim() || !isOnline}
               className="send-button inline-flex h-12 shrink-0 items-center gap-2 rounded-xl px-4 text-sm font-semibold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-40"
             >
               <Sparkles className="h-4 w-4" />
