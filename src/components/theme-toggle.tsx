@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Moon, Sun } from 'lucide-react';
 
 type Theme = 'light' | 'dark';
 
@@ -18,9 +19,12 @@ export default function ThemeToggle() {
     const systemPrefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
     const initialTheme = storedTheme ?? (systemPrefersDark ? 'dark' : 'light');
 
-    setTheme(initialTheme);
     applyTheme(initialTheme);
-    setReady(true);
+
+    queueMicrotask(() => {
+      setTheme(initialTheme);
+      setReady(true);
+    });
   }, []);
 
   function toggleTheme() {
@@ -39,8 +43,12 @@ export default function ThemeToggle() {
       title="Toggle theme"
       disabled={!ready}
     >
-      <span className="theme-toggle-icon" aria-hidden="true">
-        {theme === 'dark' ? 'Light' : 'Dark'}
+      <span className="theme-toggle-icon-wrap" aria-hidden="true">
+        <Sun className={`theme-toggle-icon ${theme === 'light' ? 'theme-icon-active' : ''}`} />
+        <Moon className={`theme-toggle-icon ${theme === 'dark' ? 'theme-icon-active' : ''}`} />
+      </span>
+      <span className="theme-toggle-label">
+        {theme === 'dark' ? 'Dark' : 'Light'}
       </span>
     </button>
   );
