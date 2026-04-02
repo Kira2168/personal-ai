@@ -29,6 +29,10 @@ Personal resilience:
 - Through his faith in God, he found the strength to rise again, stronger than before.
 - He now channels that pain into building resilient, unbreakable systems.
 
+Faith and encouragement:
+- Kirubel says his full energy is God; without Him he is nothing.
+- He often reminds people they are loved by God, and that God gave His only Son so they can have eternal life.
+
 Projects:
 - Emerald Car Dealership: Premium PHP/Tailwind commerce site.
 - AR Dragon System: Unity/C# AR tracking app.

@@ -181,7 +181,8 @@ export default function Chat() {
     'Tell me about Kirubel in short.',
     'Show me Kirubel picture.',
     'How can I contact Kirubel?',
-    'Show me his CV.',
+    'Show me his CV',
+    'Give me a Christian encouragement message from Kirubel.',
   ];
 
   useEffect(() => {
@@ -266,28 +267,27 @@ export default function Chat() {
 
       <div className="glass-card relative flex min-h-0 flex-1 flex-col overflow-hidden rounded-3xl">
         <div className="flex-1 space-y-4 overflow-y-auto px-4 py-5 sm:px-6">
+          <div className="mx-auto max-w-2xl">
+            <p className="quick-title mb-2 text-xs font-semibold uppercase tracking-[0.2em]">Try these</p>
+            <div className="flex flex-wrap gap-2">
+              {quickPrompts.map(prompt => (
+                <button
+                  key={prompt}
+                  type="button"
+                  onClick={() => handleQuickPrompt(prompt)}
+                  disabled={isSending}
+                  className="quick-chip rounded-full px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {prompt}
+                </button>
+              ))}
+            </div>
+          </div>
+
           {messages.length === 0 ? (
-            <>
-              <div className="chat-empty mx-auto mt-10 max-w-xl rounded-2xl p-5 text-center">
-                Ask me about Kirubel or anything else.
-              </div>
-              <div className="mx-auto max-w-2xl">
-                <p className="quick-title mb-2 text-xs font-semibold uppercase tracking-[0.2em]">Try these</p>
-                <div className="flex flex-wrap gap-2">
-                  {quickPrompts.map(prompt => (
-                    <button
-                      key={prompt}
-                      type="button"
-                      onClick={() => handleQuickPrompt(prompt)}
-                      disabled={isSending}
-                      className="quick-chip rounded-full px-4 py-2 text-sm transition disabled:cursor-not-allowed disabled:opacity-50"
-                    >
-                      {prompt}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </>
+            <div className="chat-empty mx-auto mt-10 max-w-xl rounded-2xl p-5 text-center">
+              Ask me about Kirubel or anything else.
+            </div>
           ) : null}
 
           {messages.map(m => {
