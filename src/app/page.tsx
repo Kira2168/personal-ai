@@ -323,7 +323,7 @@ export default function Chat() {
 
           {!isOnline ? (
             <div className="chat-error mx-auto max-w-xl rounded-2xl p-4 text-sm">
-              Kirubel AI is currently offline because the model server is not available right now. Please try again when the server is back online. In the meantime, you can reach Kirubel here:{' '}
+              Kirubel AI is currently offline right now. Please try again in a moment. In the meantime, you can reach Kirubel here:{' '}
               <a
                 href="https://kira-portfolio-bice.vercel.app/"
                 target="_blank"
